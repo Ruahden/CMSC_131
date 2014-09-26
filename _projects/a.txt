@@ -1,0 +1,155 @@
+
+		inputloop: 
+			mov ah, 01h
+			int 21h ;input		
+			mov userinput[bx], al
+			inc bx
+			cmp al, 13;	
+
+			
+		jne inputloop
+	
+	;if no input
+	cmp bx,1
+	je endpoint	
+	
+	;else may input
+	mov bxvalue, bx
+	dec bxvalue
+	
+	mov anotherbxvalue, bx
+	xor bx, bx
+	mov bx, 2
+	mov cx, 1
+	cxgetter:
+		mov ax, 10
+		mul cx
+		mov cx, ax
+		inc bx
+	cmp bx, anotherbxvalue
+	jne cxgetter
+	
+	xor bx,bx
+	jmp innerloop
+	
+	cmp bx,6
+	jne not10000
+	 mov cx, 10000
+	not10000:
+	
+	cmp bx,5
+	jne not1000
+	 mov cx, 1000
+	not1000:
+	
+	cmp bx,4
+	jne not100
+	 mov cx, 100
+	not100:
+	
+	cmp bx,3
+	jne not10
+	 mov cx, 10
+	not10:
+	
+	cmp bx,2
+	jne not1
+	 mov cx, 1
+	not1:
+	
+	cmp bx,1
+	je endpoint	
+
+	xor bx,bx
+	innerloop:
+		sub userinput[bx], '0'		
+		mov ax, 1
+		mul userinput[bx]
+		mul cx
+		add final, ax
+		xor dx,dx
+		mov ax,cx
+		mov cx, 10
+		div cx 
+		mov cx,ax			
+		inc bx
+		cmp bx, bxvalue;
+	jne innerloop
+	jmp endpoint
+	
+	printloop:
+			mov cx, 2
+			div cx
+			mov cx, ax
+			add dx, '0'
+			mov answer[bx], dl
+			xor dx,dx
+			mov ax, cx
+			inc bx
+			cmp bx, 16
+		jne printloop
+
+		mov bx, 15
+		
+		printanswer:
+			mov dl, answer[bx]
+			mov ah, 02h
+			int 21h
+			
+			xor dx,dx
+			mov ax,bx
+			mov cx, 4
+			div cx
+			cmp dx, 0
+			jne nospace
+				mov dl, 32
+				mov ah, 02h
+				int 21h
+			nospace:
+			
+			dec bx
+			cmp bx,-1
+		jne printanswer
+		
+xor ah, ah
+		mov cl, 10
+		div cl
+		add ah, '0'
+		mov dh, ah
+		add al, '0'
+		
+		mov dl, al
+		mov ah, 02h
+		int 21h
+		
+		mov dl, dh
+		mov ah, 02h
+		int 21h
+		
+		************
+		
+		
+	newline proc
+
+		mov dl, 0ah
+		mov ah, 02h
+		int 21h
+	
+	ret
+	newline endp
+		
+	
+		lea dx,first ;prints 1st input value
+		mov ah, 09h
+		int 21h 
+		xor ax,ax 
+		mov al, input[0]
+		call print
+				
+		lea dx,second ;prints 2nd input value
+		mov ah, 09h
+		int 21h 
+		xor ax,ax 
+		mov al, input[1]
+		call print
+	
