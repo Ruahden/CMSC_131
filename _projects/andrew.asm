@@ -14,6 +14,7 @@ title Bit_Representation
 	count db 0
 	count2 db 0
 	value db 0
+	;hello there
 .stack 100h
 .code
 	main proc
