@@ -4,22 +4,24 @@ import java.io.*;
 
 public class ToAssembly {
 	public static void main(String[] args) {
-		try {
-			BufferedReader inputStream = new BufferedReader(new FileReader("helloworld.c"));
+		try (BufferedReader br = new BufferedReader(new FileReader("helloworld.c"))) {
+			StringBuilder sb = new StringBuilder();
+			String line = br.readLine();
+			
 			System.out.println("Contents of the .c file:\n");
-			String line = null;
-			for (int i = 0; i <=3; i++) {
-				line = inputStream.readLine();
-				System.out.println(line);
+			
+			while (line != null) {
+				sb.append(line);
+				sb.append(System.lineSeparator());
+				line = br.readLine();
 			}
-			inputStream.close();
-		}
-		catch (FileNotFoundException e) {
-			System.out.println("The file could not be found or could not be opened.");
-		}
-		catch (IOException e) {
+			String everything = sb.toString();
+			System.out.println(everything);
+		} catch (FileNotFoundException e) {
+			System.out
+					.println("The file could not be found or could not be opened.");
+		} catch (IOException e) {
 			System.out.println("Error reading file.");
 		}
 	}
 }
-
