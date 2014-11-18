@@ -3,7 +3,7 @@ title HelloWorld
 .model small
 .stack 100h
 .data
-	 hello db 'Hello World!', '$'
+	 hello db	'Hello World!', '$'
 .code
 
     main    proc

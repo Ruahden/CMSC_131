@@ -6,7 +6,7 @@ public class Disassembler {
 		
 		/* To be put here the interface of input */
 		
-		String filename = "helloworld.c";
+		String filename = "helloworld.asm";
 		
 		/* To be put here the interface of input */
 	
@@ -24,6 +24,7 @@ public class Disassembler {
 			System.out.println("Not an assembly code or a C Langage code!");
 		}
 		
+		System.out.println(originalCode);
 		System.out.println(convertedCode);
 		
 	}
