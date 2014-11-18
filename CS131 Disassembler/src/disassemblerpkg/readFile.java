@@ -23,10 +23,7 @@ public class readFile {
 			
 			String line = br.readLine();
 			while (line != null) {
-				line =  line.trim();
-				if(!line.equals("")){
-					readFile.originalCode += line + "\n";
-				}
+				readFile.originalCode += line + "\n";
 				line = br.readLine();
 			}
 			
