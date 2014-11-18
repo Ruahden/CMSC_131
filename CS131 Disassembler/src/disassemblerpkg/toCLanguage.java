@@ -1,18 +1,18 @@
 package disassemblerpkg;
 
-public class toAssembly {
+public class toCLanguage {
 
 	private static String convertedCode = new String();
 	
 	/*
 	 * Function:
-	 * 	Converts input C code to assembly code
+	 * 	Converts input c code to assembly code
 	 * Parameter:
-	 * 	String originalCode - the C code to be converted
+	 * 	String originalCode - the assembly code to be converted
 	 * Returns:
 	 * 	none
 	 * */
-	toAssembly(String originalCode) {
+	toCLanguage(String originalCode) {
 		
 		String convertedCode = new String();
 		
@@ -21,18 +21,18 @@ public class toAssembly {
 		
 		/* THE CONVERSION ENDS */
 		
-		toAssembly.convertedCode = convertedCode;
+		toCLanguage.convertedCode = convertedCode;
 	}
-
+	
 	/*
 	 * Function:
-	 * 	Returns the converted assembly language
+	 * 	Returns the converted C Language code
 	 * Parameter:
 	 * 	none
 	 * Returns:
-	 * 	String convertedCode - the converted assembly code
+	 * 	String convertedCode - the converted c code
 	 * */
 	String getCode() {
-		return toAssembly.convertedCode;
+		return toCLanguage.convertedCode;
 	}
 }
