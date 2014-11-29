@@ -5,7 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
-public class readFile {
+public class ReadFile {
 	
 	private static String originalCode = new String();
 	
@@ -17,13 +17,13 @@ public class readFile {
     	 * Returns:
     	 * 	none
     	 * */
-	readFile(String filename) {
+	ReadFile(String filename) {
 		
 		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
 			
 			String line = br.readLine();
 			while (line != null) {
-				readFile.originalCode += line + "\n";
+				ReadFile.originalCode += line + "\n";
 				line = br.readLine();
 			}
 			
@@ -43,7 +43,7 @@ public class readFile {
     	 * 	String - the read contents
     	 * */
 	String getCode(){
-		return readFile.originalCode;
+		return ReadFile.originalCode;
 	}
 	
 }

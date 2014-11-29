@@ -8,11 +8,11 @@ public class Disassembler {
 		
 		/* To be put here the interface of input */
 		
-		String filename = "helloworld.asm";
+		String filename = "helloworld.c";
 		
 		/* To be put here the interface of input */
 	
-		String originalCode =new readFile(filename).getCode();
+		String originalCode =new ReadFile(filename).getCode();
 		String convertedCode = new String();
 		
 		String trimmedOriginalCode = new String();
@@ -23,10 +23,10 @@ public class Disassembler {
 		
 		String extension = filename.substring(filename.indexOf('.')+1).toLowerCase();
 		if(extension.equals("c")){
-			convertedCode = new toAssembly(trimmedOriginalCode).getCode();
+			convertedCode = new ToAssembly(trimmedOriginalCode).getCode();
 		} 
 		else if(extension.equals("asm")){
-			convertedCode = new toCLanguage(trimmedOriginalCode).getCode();
+			convertedCode = new ToCLanguage(trimmedOriginalCode).getCode();
 		} 
 		else{
 			System.out.println("Not an assembly code or a C Langage code!");

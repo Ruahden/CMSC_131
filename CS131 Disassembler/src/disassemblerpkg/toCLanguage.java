@@ -3,7 +3,7 @@ package disassemblerpkg;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-public class toCLanguage {
+public class ToCLanguage {
 
 	private static String convertedCode = new String();
 	
@@ -22,7 +22,7 @@ public class toCLanguage {
 	 * Returns:
 	 * 	none
 	 * */
-	toCLanguage(String originalCode) {
+	ToCLanguage(String originalCode) {
 		
 		/*
 		 * convertedCode[0] - the includes
@@ -78,12 +78,12 @@ public class toCLanguage {
 					body += line + "\n";
 					line = tokenizer.nextToken();
 				}
-				convertedCode[2] = toCLanguage.bodyParser(body);
+				convertedCode[2] = ToCLanguage.bodyParser(body);
 			}
 		}
 		
 		for(String code :  convertedCode){
-			toCLanguage.convertedCode += code;
+			ToCLanguage.convertedCode += code;
 		}
 	}
 	
@@ -112,6 +112,6 @@ public class toCLanguage {
 	 * 	String - the converted c code
 	 * */
 	String getCode() {
-		return toCLanguage.convertedCode;
+		return ToCLanguage.convertedCode;
 	}
 }
