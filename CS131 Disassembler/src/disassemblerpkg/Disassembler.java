@@ -8,7 +8,7 @@ public class Disassembler {
 		
 		/* To be put here the interface of input */
 		
-		String filename = "helloworld.c";
+		String filename = "test1.c";
 		
 		/* To be put here the interface of input */
 	
