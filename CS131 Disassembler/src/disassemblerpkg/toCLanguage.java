@@ -26,6 +26,9 @@ public class ToCLanguage {
 	 * */
 	ToCLanguage(String originalCode) {
 		
+		ToCLanguage.dataContent.clear();
+		ToCLanguage.convertedCode = "";
+		
 		/*
 		 * convertedCode[0] - the includes
 		 * convertedCode[1] - the main proc [ main(){ ]
@@ -43,8 +46,7 @@ public class ToCLanguage {
 			
 			if(line.equals(".data")){
 				line = tokenizer.nextToken();
-				while(!line.equals(".code")){
-					
+				while(!line.equals(".stack 100h")){
 					String[] data = new String[2];
 					
 					int valueStartIndex = line.lastIndexOf("d") + 3,
@@ -52,7 +54,7 @@ public class ToCLanguage {
 					String variable = "",
 						value = line.substring(valueStartIndex, valueEndIndex).trim();
 					
-					//gets variable name
+					// gets variable name
 					int variableStartIndex = 0;
 					String character = line.substring(variableStartIndex, variableStartIndex + 1);
 						while(!character.equals(" ")){
@@ -61,28 +63,53 @@ public class ToCLanguage {
 							character = line.substring(variableStartIndex, variableStartIndex + 1);
 						};
 					
-					//gets variable value and data type
-					//string
-					if (line.contains("\"")) {
-						valueStartIndex = line.indexOf("\"") + 1;
-						valueEndIndex = line.substring(0, line.indexOf("$") - 1).lastIndexOf("\"");
-						value = "\"" + line.substring(valueStartIndex, valueEndIndex) + "\"";
-						variable = "char " + variable + "[]";
-					} 
-					//character (will be converted to decimal)
-					else if (line.contains("\'")) {
-						valueStartIndex = line.indexOf("\'") + 1;
-						valueEndIndex = line.lastIndexOf("\'");
-						value = line.substring(valueStartIndex, valueEndIndex);
-						int decValue = (int) value.charAt(0);
-						value = Integer.toString(decValue);
-						variable = "int " + variable;
+					// gets variable value and data type
+					// string
+					if (line.contains("\'") || line.contains("\"")) {
+						line = line.replace('\"', '\'');
+						int count = line.length() - line.replace("\'", "").length();
+						if (count >= 2) {
+							valueStartIndex = line.indexOf("\'") + 1;
+							valueEndIndex = line.lastIndexOf("\'");
+							value = line.substring(valueStartIndex, valueEndIndex);
+							String concatenated = new String("");
+							String[] splitValues = value.split("\',|\' ,|,\'|, \'");
+							for (int i = 0; i < splitValues.length; i++) {
+								String temp = splitValues[i].trim();
+								if (temp.equals("\'$")) {
+									temp = "";
+								}
+								try {
+									int tempInt = Integer.parseInt(temp);
+									if (tempInt == 10) {
+										temp = "\\n";
+									} 
+									else {
+										temp = Character.toString((char) tempInt);
+									}
+								} catch (NumberFormatException e) {
+								}
+								concatenated += temp;
+							}
+							if (concatenated.contains("$")) {
+								concatenated = concatenated.replace("$", "");
+							}
+							if (concatenated.length() == 1) {
+								int decValue = (int) concatenated.charAt(0);
+								value = Integer.toString(decValue);
+								variable = "int " + variable;
+							} 
+							else {
+								value = "\"" + concatenated + "\"";
+								variable = "char " + variable + "[]";
+							}
+						}
 					}
-					//uninitialized variable
+					// uninitialized variable
 					else if (value.equals("?")) {
 						value = "?";
 					}
-					//integer (hexadecimal, will be converted to decimal)
+					// integer (hexadecimal, will be converted to decimal)
 					else if (value.toLowerCase().matches(".*\\d.*[h]")) {
 						value = value.toLowerCase();
 						value = value.substring(0, value.lastIndexOf("h"));
@@ -90,7 +117,7 @@ public class ToCLanguage {
 						value = Integer.toString(hexaValue);
 						variable = "int " + variable;
 					}
-					//integer (decimal)
+					// integer (decimal)
 					else if (line.matches(".*\\d.*")) {
 						variable = "int " + variable;
 					}
@@ -105,10 +132,10 @@ public class ToCLanguage {
 				
 			}
 			
-			if(line.equals("mov ds, ax")){
+			if(line.contains("mov ds, ax")){
 				line = tokenizer.nextToken();
 				String body = new String();
-				while(!line.equals("mov ax, 4c00h")){
+				while(!line.contains("mov ax, 4c00h")){
 					body += line + "\n";
 					line = tokenizer.nextToken();
 				}
@@ -159,10 +186,9 @@ public class ToCLanguage {
 			String line = bodyToken.nextToken();
 			indexOfLine = indexOfLine + line.length();
 			String first, second, binaryValue;
-			
-			// checks if line is a label
+			//  checks if line is a label
 			if (line.contains(":") && !line.contains("\"")) {
-				if (underWhat.isEmpty()) {
+				if (underWhat.isEmpty()) { //  loop if underWhat is empty
 					labelName = line.substring(0, line.indexOf(":")).trim();
 					int jmpIndex = body.indexOf("jmp", indexOfLine);
 					if (jmpIndex != -1) {
@@ -197,7 +223,8 @@ public class ToCLanguage {
 							
 							convertedBody += "\twhile (" + firstVar + theJump + secondVar + ") { \n";
 							underWhat.push(3);
-						} else {
+						} 
+						else {
 							convertedBody += "\tdo {\n";
 							underWhat.push(2);
 						}
@@ -212,17 +239,27 @@ public class ToCLanguage {
 					if (x == 0) {
 						convertedBody += "\t}\n";
 					} 
-					else if (x == 1) {
-						convertedBody += "\t} else { \n";
+				else if (x == 1) {
+						int r = body.indexOf(labelName + ":");
+						int s = body.indexOf(":", r);
+						s++;
+						while (body.charAt(s) == ' ' || body.charAt(s) == '\n') {
+							s++;
+						}
+						String isThisCompare = body.substring(s, s + 3);
+						if (isThisCompare.equals("cmp")) {
+							convertedBody += "\t} else \n";
+						} else {
+							convertedBody += "\t} else { \n";
+						}
 						underWhat.push(0);
-					} 
-					else if (x == 3) {
+					} else if (x == 3) {
 						convertedBody += "\t} \n";
 					}
 				}
 			}
 
-			//checks if line is for jumping
+			// checks if line is for jumping
 			else if (line.contains("jmp")) {
 				int x = underWhat.pop();
 				if (x == 0) {
@@ -233,11 +270,10 @@ public class ToCLanguage {
 				}
 			}
 			
-			//checks if line is for comparing
+			// checks if line is for comparing
 			else if (line.contains("cmp")) {
 				String values = line.substring(line.indexOf("cmp") + 3).trim();
-				StringTokenizer valuesTokenizer = new StringTokenizer(values,
-						",");
+				StringTokenizer valuesTokenizer = new StringTokenizer(values, ",");
 				firstVar = valuesTokenizer.nextToken().trim();
 				secondVar = valuesTokenizer.nextToken().trim();
 				if (underWhat.isEmpty()) {
@@ -245,7 +281,7 @@ public class ToCLanguage {
 				}
 			}
 			
-			//checks if line is for conditional jumping
+			// checks if line is for conditional jumping
 			else if (line.contains("jne") || line.contains("je")
 				|| line.contains("jl") || line.contains("jle")
 				|| line.contains("jg") || line.contains("jge")) {
@@ -304,13 +340,10 @@ public class ToCLanguage {
 						theJump = " <= ";
 					}
 					underWhat.push(3);
-
 				}
 			}
 			
-			//NOTE: OKAY NA 'TO DOWNWARDS. SO FAR.
-			
-			//checks if line is interrupt for printing
+			// checks if line is interrupt for printing
 			else if (line.toLowerCase().contains("int 21h")) {
 				String printf = new String(""),
 					beforeAh, afterAh, withoutAh, fullTemp;
@@ -318,9 +351,9 @@ public class ToCLanguage {
 					printf = "\tprintf(\"%c\", dl);\n";
 				}
 				else if (registerValueArray[1].equals("9") && !registerValueArray[12].equals("")) {
-					printf = "\tprintf(" + registerValueArray[12] + ");\n";
+					printf = "\tprintf(\"%s\", " + registerValueArray[12] + ");\n";
 				}
-				//removes last occurrence of ah which is ah = 9 or ah = 2
+				// removes last occurrence of ah which is ah = 9 or ah = 2
 				beforeAh = convertedBody.substring(0, convertedBody.lastIndexOf("ah = "));
 				afterAh = convertedBody.substring(convertedBody.lastIndexOf("ah = "), convertedBody.length());
 				withoutAh = afterAh.substring(afterAh.indexOf("\n"), afterAh.length());
@@ -329,28 +362,22 @@ public class ToCLanguage {
 				convertedBody = fullTemp;
 			}
 			
-			//checks if line contains lea for printing
+			// checks if line contains lea for printing
 			else if (line.matches("lea dx, .*")) {
-				for (String[] dataArray : dynamicData) {
-					String temp = line.substring(line.indexOf(",") + 1, line.length()).trim();
-					if (temp.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))) {
-						registerValueArray[12] = dataArray[1];
-						break;
-					}
-				}
+				registerValueArray[12] = line.substring(line.indexOf(",") + 1, line.length()).trim();
 			}
 			
-			//checks if line is for assigning variables/registers
+			// checks if line is for assigning variables/registers
 			else if (line.matches("mov .*")) {
 				first = line.substring(line.indexOf(" "), line.indexOf(",")).trim();
 				second = line.substring(line.indexOf(",") + 1, line.length()).trim();
 				String variable = new String("");
-				//checks if first is a declared variable
+				// checks if first is a declared variable
 				int ctr = -1;
 				boolean isFirstVariable = false;
 				for (String[] dataArray : dynamicData) {
 					ctr++;
-					//if first is an uninitialized variable, determines data type and first value
+					// if first is an uninitialized variable, determines data type and first value
 					if (first.equals(dataArray[0]) && dataArray[1].equals("?")) {
 						String tempValue = second;
 						for (int i = 0; i < registersArray.length; i++) {
@@ -359,24 +386,55 @@ public class ToCLanguage {
 								break;
 							}
 						}
-						//string
-						if (tempValue.indexOf("\"") == 0 && tempValue.lastIndexOf("\"") == tempValue.length() - 1) {
-							variable = "char " + first + "[]";							
+						// string / character
+						if (line.contains("\'") || line.contains("\"")) {
+							line = line.replace('\"', '\'');
+							int count = line.length() - line.replace("\'", "").length();
+							if (count >= 2) {
+								int valueStartIndex = line.indexOf("\'") + 1;
+								int valueEndIndex = line.lastIndexOf("\'");
+								tempValue = line.substring(valueStartIndex, valueEndIndex);
+								String concatenated = new String("");
+								String[] splitValues = tempValue.split("\',|\' ,|,\'|, \'");
+								for (int i = 0; i < splitValues.length; i++) {
+									String temp = splitValues[i].trim();
+									if (temp.equals("\'$")) {
+										temp = "";
+									}
+									try {
+										int tempInt = Integer.parseInt(temp);
+										if (tempInt == 10) {
+											temp = "\\n";
+										} 
+										else {
+											temp = Character.toString((char) tempInt);
+										}
+									} catch (NumberFormatException e) {
+									}
+									concatenated += temp;
+								}
+								if (concatenated.contains("$")) {
+									concatenated = concatenated.replace("$", "");
+								}
+								if (concatenated.length() == 1) {
+									int decValue = (int) concatenated.charAt(0);
+									tempValue = Integer.toString(decValue);
+									variable = "int " + first;
+								} 
+								else {
+									tempValue = "\"" + concatenated + "\"";
+									variable = "char " + first + "[]";
+								}
+							}
 						}
-						//char
-						else if (tempValue.contains("\'")) {
-							int decValue = (int) tempValue.charAt(1);
-							tempValue = Integer.toString(decValue);
-							variable = "int " + first;
-						}
-						//hexadecimal
+						// hexadecimal
 						else if (tempValue.toLowerCase().matches(".*\\d.*[h]")) {
 							tempValue = tempValue.substring(0, tempValue.toLowerCase().lastIndexOf("h"));
 							int hexaValue = Integer.parseInt(tempValue, 16);
 							tempValue = Integer.toString(hexaValue);
 							variable = "int " + first;
 						}
-						//decimal
+						// decimal
 						else if (tempValue.matches(".*\\d.*")) {
 							variable = "int " + first;
 						}
@@ -390,12 +448,13 @@ public class ToCLanguage {
 						isFirstVariable = true;
 						break;
 					}
-					//if first is already initialized
+					// if first is already initialized
 					else if ((dataArray[0].contains(" ")
-						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length())))) 
-						|| (dataArray[0].contains(" ")
-						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))))){
-						//if second is a register
+						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length()))))) { 
+						/*|| (dataArray[0].contains(" ")
+						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))))){*/
+						
+						// if second is a register
 						boolean isSecondRegister = false;
 						for (int i = 0; i < registersArray.length; i++) {
 							if (second.equals(registersArray[i])) {
@@ -408,14 +467,15 @@ public class ToCLanguage {
 								break;
 							}
 						}
-						//if second is not a register (i.e. second is a specific value)
+						// if second is not a register (i.e. second is a specific value)
 						if (!isSecondRegister) {
 							if (second.toLowerCase().matches(".*\\d.*[h]")) {
 								second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 								int hexaValue = Integer.parseInt(second, 16);
 								second = Integer.toString(hexaValue);
 							}
-							else if (second.contains("\'")) {
+							// character (will be converted to int)
+							else if (second.contains("\'") || second.contains("\"")) {
 								int decValue = (int) second.charAt(1);
 								second = Integer.toString(decValue);
 							}
@@ -430,24 +490,24 @@ public class ToCLanguage {
 					}
 				}
 
-				//checks if first is a register
+				// checks if first is a register
 				if (!isFirstVariable) {
 					for (int i = 0; i < registersArray.length; i++) {
 						if (first.equals(registersArray[i])) {
 							boolean isSecondRegister = false;
-							//if second is also a register
+							// if second is also a register
 							for (int j = 0; j < registersArray.length; j++) {
 								if (second.equals(registersArray[j])) {
-									//determines data type of register
+									// determines data type of register
 									if (!registerBoolArray[i]) {
 										variable = registersArray[i];
 										tempArray = new String[2];
-										//string or character
+										// character
 										if (registerValueArray[j].contains("\"") || registerValueArray[j].contains("\'")) {
-											tempArray[0] = "char " + variable + "[]";
+											tempArray[0] = "int " + variable;
 											tempArray[1] = registerValueArray[j];
 										} 
-										//integer (decimal)
+										// integer (decimal)
 										else if (registerValueArray[j].matches(".*\\d.*")) {
 											tempArray[0] = "int " + variable;
 											tempArray[1] = "?";
@@ -496,90 +556,95 @@ public class ToCLanguage {
 									break;
 								}
 							}
-							
+
 							boolean isSecondVariable = false;
-							for (String[] dataArray : dynamicData) {
-								//if second is a declared variable
-								if ((dataArray[0].contains(" ")
-										&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length())))) 
-										|| (dataArray[0].contains(" ")
-										&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))))){
-									//determines data type of register
-									if (!registerBoolArray[i]) {
-										variable = registersArray[i];
-										tempArray = new String[2];
-										if (dataArray[1].contains("\"") || dataArray[1].contains("\'")) {
-											tempArray[0] = "char " + variable + "[]";
-											tempArray[1] = dataArray[1];
-										} 
-										//integer (decimal)
-										else if (dataArray[1].matches(".*\\d.*")) {
-											tempArray[0] = "int " + variable;
-											tempArray[1] = "?";
+							if (!isSecondRegister) {
+								for (String[] dataArray : dynamicData) {
+									// if second is a declared variable
+									if ((dataArray[0].contains(" ")
+											&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length()))))) { 
+											/*|| (dataArray[0].contains(" ")
+											&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))))){*/
+										// determines data type of register
+										if (!registerBoolArray[i]) {
+											variable = registersArray[i];
+											tempArray = new String[2];
+											// character
+											if (dataArray[1].contains("\"") || dataArray[1].contains("\'")) {
+												tempArray[0] = "int " + variable;
+												tempArray[1] = dataArray[1];
+											} 
+											// integer (decimal)
+											else if (dataArray[1].matches(".*\\d.*")) {
+												tempArray[0] = "int " + variable;
+												tempArray[1] = "?";
+											}
+											dataContent.add(tempArray);
+											registerBoolArray[i] = true;
 										}
-										dataContent.add(tempArray);
-										registerBoolArray[i] = true;
-									}
-									binaryValue = Integer.toBinaryString(Integer.parseInt(dataArray[1]));
-									int delimiterIndex;
-									if (first.matches("[abcd]h")) {
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = registerValueArray[i+1]
-											.substring(delimiterIndex, registerValueArray[i+1].length());
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = dataArray[1];
-									}
-									else if (first.matches("[abcd]l")) {
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = dataArray[1];
-									}
-									else if (first.matches("[abcd]x")) {
-										if (Integer.parseInt(dataArray[1]) < 256) {
-											registerValueArray[i] = "|" + binaryValue;
-											registerValueArray[i-1] = new String("");
-											registerValueArray[i-2] = dataArray[1];
+										binaryValue = Integer.toBinaryString(Integer.parseInt(dataArray[1]));
+										int delimiterIndex;
+										if (first.matches("[abcd]h")) {
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = registerValueArray[i+1]
+												.substring(delimiterIndex, registerValueArray[i+1].length());
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = dataArray[1];
 										}
-										else {
-											String high = binaryValue.substring(0, binaryValue.length()-8);
-											String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
-											registerValueArray[i] = high + "|" + low;
-											registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
-											registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+										else if (first.matches("[abcd]l")) {
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = dataArray[1];
 										}
+										else if (first.matches("[abcd]x")) {
+											if (Integer.parseInt(dataArray[1]) < 256) {
+												registerValueArray[i] = "|" + binaryValue;
+												registerValueArray[i-1] = new String("");
+												registerValueArray[i-2] = dataArray[1];
+											}
+											else {
+												String high = binaryValue.substring(0, binaryValue.length()-8);
+												String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
+												registerValueArray[i] = high + "|" + low;
+												registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
+												registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+											}
+										}
+										convertedBody += "\t" + first + " = " + second + ";\n";
+										isSecondVariable = true;
+										break;
 									}
-									convertedBody += "\t" + first + " = " + second + ";\n";
-									isSecondVariable = true;
-									break;
 								}
 							}
-							//if second is not a register and not a declared variable (i.e. second is a specific value)
+							// if second is not a register and not a declared variable (i.e. second is a specific value)
 							if (!isSecondVariable && !isSecondRegister) {
+								// hexadecimal
 								if (second.toLowerCase().matches(".*\\d.*[h]")) {
 									second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 									int hexaValue = Integer.parseInt(second, 16);
 									second = Integer.toString(hexaValue);
 								}
-								else if (second.contains("\'")) {
+								// character (will be converted to int)
+								else if (second.contains("\'") || second.contains("\"")) {
 									int decValue = (int) second.charAt(1);
 									second = Integer.toString(decValue);
 								}
-								//determines data type of register
+								// determines data type of register
 								if (!registerBoolArray[i]) {
 									variable = registersArray[i];
-									//string or character
-									if (!second.matches("offset .*")) {
+									if (!second.matches("offset .*")) {										
 										tempArray = new String[2];
+										// character
 										if (second.contains("\"") || second.contains("\'")) {
-											tempArray[0] = "char " + variable + "[]";
+											tempArray[0] = "int " + variable;
 											tempArray[1] = second;
 										}
-										//integer (decimal)
+										// integer (decimal)
 										else if (second.matches(".*\\d.*")) {
 											tempArray[0] = "int " + variable;
 											tempArray[1] = "?";
@@ -613,12 +678,6 @@ public class ToCLanguage {
 								else if (first.matches("[abcd]x")) {
 									if (second.matches("offset .*")) {
 										registerValueArray[12] = second.substring(second.indexOf(" "), second.length()).trim();
-										for (String[] dataArray : dynamicData) {
-											if (registerValueArray[12].equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1, dataArray[0].length() - 2))) {
-												registerValueArray[12] = dataArray[1];
-												break;
-											}
-										}
 									}
 									else if (Integer.parseInt(second) < 256) {
 										binaryValue = Integer.toBinaryString(Integer.parseInt(second));
@@ -643,7 +702,7 @@ public class ToCLanguage {
 				}
 			}
 			
-			//checks if line is for adding
+			// checks if line is for adding
 			else if (line.matches("add .*") || line.matches("inc .*")) {
 				if (line.matches("add .*")) {
 					first = line.substring(line.indexOf(" "), line.indexOf(",")).trim();
@@ -653,16 +712,16 @@ public class ToCLanguage {
 					first = line.substring(line.indexOf(" "), line.length()).trim();
 					second = "1";
 				}
-				//checks if first is a declared variable
+				// checks if first is a declared variable
 				int ctr = -1;
 				boolean isFirstVariable = false;
 				for (String[] dataArray : dynamicData) {
 					ctr++;
-					//if first is already initialized
+					// if first is already initialized
 					if (dataArray[0].contains(" ")
 						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
 						dataArray[0].length())))) {
-						//if second is a register
+						// if second is a register
 						boolean isSecondRegister = false;
 						for (int i = 0; i < registersArray.length; i++) {
 							if (second.equals(registersArray[i])) {
@@ -678,12 +737,18 @@ public class ToCLanguage {
 								break;
 							}
 						}
-						//if second is not a register (i.e. second is a specific value)
+						// if second is not a register (i.e. second is a specific value)
 						if (!isSecondRegister) {
+							// hexadecimal
 							if (second.toLowerCase().matches(".*\\d.*[h]")) {
 								second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 								int hexaValue = Integer.parseInt(second, 16);
 								second = Integer.toString(hexaValue);
+							}
+							// character (will be converted to int)
+							else if (second.contains("\'") || second.contains("\"")) {
+								int decValue = (int) second.charAt(1);
+								second = Integer.toString(decValue);
 							}
 							int firstValue = Integer.parseInt(dataArray[1]);
 							int secondValue = Integer.parseInt(second);
@@ -699,12 +764,12 @@ public class ToCLanguage {
 					}
 				}
 				
-				//checks if first is a register
+				// checks if first is a register
 				if (!isFirstVariable) {
 					for (int i = 0; i < registersArray.length; i++) {
 						if (first.equals(registersArray[i])) {
 							boolean isSecondRegister = false;
-							//if second is also a register
+							// if second is also a register
 							for (int j = 0; j < registersArray.length; j++) {
 								if (second.equals(registersArray[j])) {
 									int firstValue, secondValue, delimiterIndex;
@@ -758,68 +823,76 @@ public class ToCLanguage {
 									break;
 								}
 							}
+							
 							boolean isSecondVariable = false;
-							for (String[] dataArray : dynamicData) {
-								//if second is a declared variable
-								if (dataArray[0].contains(" ")
-									&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
-									dataArray[0].length())))) {
-									int firstValue, secondValue, delimiterIndex;
-									if (first.matches("[abcd]h")) {
-										firstValue = Integer.parseInt(registerValueArray[i]);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue + secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = registerValueArray[i+1]
-											.substring(delimiterIndex, registerValueArray[i+1].length());
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = Integer.toString(firstValue);
-									}
-									else if (first.matches("[abcd]l")) {
-										firstValue = Integer.parseInt(registerValueArray[i]);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue + secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = Integer.toString(firstValue);
-									}
-									else if (first.matches("[abcd]x")) {
-										firstValue = Integer.parseInt(new StringBuilder(registerValueArray[i]).
-											deleteCharAt(registerValueArray[i].indexOf("|")).toString(), 2);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue + secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										if (firstValue < 256) {
-											registerValueArray[i] = "|" + binaryValue;
-											registerValueArray[i-1] = new String("");
-											registerValueArray[i-2] = Integer.toString(firstValue);
+							if (!isSecondRegister) {
+								for (String[] dataArray : dynamicData) {
+									// if second is a declared variable
+									if (dataArray[0].contains(" ")
+										&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
+										dataArray[0].length())))) {
+										int firstValue, secondValue, delimiterIndex;
+										if (first.matches("[abcd]h")) {
+											firstValue = Integer.parseInt(registerValueArray[i]);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue + secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = registerValueArray[i+1]
+												.substring(delimiterIndex, registerValueArray[i+1].length());
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = Integer.toString(firstValue);
 										}
-										else {
-											String high = binaryValue.substring(0, binaryValue.length()-8);
-											String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
-											registerValueArray[i] = high + "|" + low;
-											registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
-											registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+										else if (first.matches("[abcd]l")) {
+											firstValue = Integer.parseInt(registerValueArray[i]);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue + secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = Integer.toString(firstValue);
 										}
+										else if (first.matches("[abcd]x")) {
+											firstValue = Integer.parseInt(new StringBuilder(registerValueArray[i]).
+												deleteCharAt(registerValueArray[i].indexOf("|")).toString(), 2);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue + secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											if (firstValue < 256) {
+												registerValueArray[i] = "|" + binaryValue;
+												registerValueArray[i-1] = new String("");
+												registerValueArray[i-2] = Integer.toString(firstValue);
+											}
+											else {
+												String high = binaryValue.substring(0, binaryValue.length()-8);
+												String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
+												registerValueArray[i] = high + "|" + low;
+												registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
+												registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+											}
+										}
+										convertedBody += "\t" + first + " = " + first + " + " + second + ";\n";
+										isSecondVariable = true;
+										break;
 									}
-									convertedBody += "\t" + first + " = " + first + " + " + second + ";\n";
-									isSecondVariable = true;
-									break;
 								}
 							}
-							//if second is not a register and not a declared variable (i.e. second is a specific value)
+							// if second is not a register and not a declared variable (i.e. second is a specific value)
 							if (!isSecondVariable && !isSecondRegister) {
 								if (second.toLowerCase().matches(".*\\d.*[h]")) {
 									second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 									int hexaValue = Integer.parseInt(second, 16);
 									second = Integer.toString(hexaValue);
+								}
+								// character (will be converted to int)
+								else if (second.contains("\'") || second.contains("\"")) {
+									int decValue = (int) second.charAt(1);
+									second = Integer.toString(decValue);
 								}
 								int firstValue, secondValue, delimiterIndex;
 								if (first.matches("[abcd]h")) {
@@ -876,7 +949,7 @@ public class ToCLanguage {
 				}
 			}
 			
-			//checks if line is for subtracting
+			// checks if line is for subtracting
 			else if (line.matches("sub .*") || line.matches("dec .*")) {
 				if (line.matches("sub .*")) {
 					first = line.substring(line.indexOf(" "), line.indexOf(",")).trim();
@@ -886,16 +959,16 @@ public class ToCLanguage {
 					first = line.substring(line.indexOf(" "), line.length()).trim();
 					second = "1";
 				}
-				//checks if first is a declared variable
+				// checks if first is a declared variable
 				int ctr = -1;
 				boolean isFirstVariable = false;
 				for (String[] dataArray : dynamicData) {
 					ctr++;
-					//if first is already initialized
+					// if first is already initialized
 					if (dataArray[0].contains(" ")
 						&& (first.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
 						dataArray[0].length())))) {
-						//if second is a register
+						// if second is a register
 						boolean isSecondRegister = false;
 						for (int i = 0; i < registersArray.length; i++) {
 							if (second.equals(registersArray[i])) {
@@ -911,12 +984,18 @@ public class ToCLanguage {
 								break;
 							}
 						}
-						//if second is not a register (i.e. second is a specific value)
+						// if second is not a register (i.e. second is a specific value)
 						if (!isSecondRegister) {
+							// hexadecimal
 							if (second.toLowerCase().matches(".*\\d.*[h]")) {
 								second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 								int hexaValue = Integer.parseInt(second, 16);
 								second = Integer.toString(hexaValue);
+							}
+							// character (will be converted to int)
+							else if (second.contains("\'") || second.contains("\"")) {
+								int decValue = (int) second.charAt(1);
+								second = Integer.toString(decValue);
 							}
 							int firstValue = Integer.parseInt(dataArray[1]);
 							int secondValue = Integer.parseInt(second);
@@ -932,12 +1011,12 @@ public class ToCLanguage {
 					}
 				}
 				
-				//checks if first is a register
+				// checks if first is a register
 				if (!isFirstVariable) {
 					for (int i = 0; i < registersArray.length; i++) {
 						if (first.equals(registersArray[i])) {
 							boolean isSecondRegister = false;
-							//if second is also a register
+							// if second is also a register
 							for (int j = 0; j < registersArray.length; j++) {
 								if (second.equals(registersArray[j])) {
 									int firstValue, secondValue, delimiterIndex;
@@ -991,68 +1070,77 @@ public class ToCLanguage {
 									break;
 								}
 							}
+							
 							boolean isSecondVariable = false;
-							for (String[] dataArray : dynamicData) {
-								//if second is a declared variable
-								if (dataArray[0].contains(" ")
-									&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
-									dataArray[0].length())))) {
-									int firstValue, secondValue, delimiterIndex;
-									if (first.matches("[abcd]h")) {
-										firstValue = Integer.parseInt(registerValueArray[i]);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue - secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = registerValueArray[i+1]
-											.substring(delimiterIndex, registerValueArray[i+1].length());
-										delimiterIndex = registerValueArray[i+1].indexOf("|");
-										registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = Integer.toString(firstValue);
-									}
-									else if (first.matches("[abcd]l")) {
-										firstValue = Integer.parseInt(registerValueArray[i]);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue - secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
-										delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
-										registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
-											.insert(delimiterIndex, binaryValue).toString();
-										registerValueArray[i] = Integer.toString(firstValue);
-									}
-									else if (first.matches("[abcd]x")) {
-										firstValue = Integer.parseInt(new StringBuilder(registerValueArray[i]).
-											deleteCharAt(registerValueArray[i].indexOf("|")).toString(), 2);
-										secondValue = Integer.parseInt(dataArray[1]);
-										firstValue = firstValue - secondValue;
-										binaryValue = Integer.toBinaryString(firstValue);
-										if (firstValue < 256) {
-											registerValueArray[i] = "|" + binaryValue;
-											registerValueArray[i-1] = new String("");
-											registerValueArray[i-2] = Integer.toString(firstValue);
+							if (!isSecondRegister) {
+								for (String[] dataArray : dynamicData) {
+									// if second is a declared variable
+									if (dataArray[0].contains(" ")
+										&& (second.equals(dataArray[0].substring(dataArray[0].indexOf(" ") + 1,
+										dataArray[0].length())))) {
+										int firstValue, secondValue, delimiterIndex;
+										if (first.matches("[abcd]h")) {
+											firstValue = Integer.parseInt(registerValueArray[i]);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue - secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = registerValueArray[i+1]
+												.substring(delimiterIndex, registerValueArray[i+1].length());
+											delimiterIndex = registerValueArray[i+1].indexOf("|");
+											registerValueArray[i+1] = new StringBuilder(registerValueArray[i+1])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = Integer.toString(firstValue);
 										}
-										else {
-											String high = binaryValue.substring(0, binaryValue.length()-8);
-											String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
-											registerValueArray[i] = high + "|" + low;
-											registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
-											registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+										else if (first.matches("[abcd]l")) {
+											firstValue = Integer.parseInt(registerValueArray[i]);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue - secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = registerValueArray[i+2].substring(0, delimiterIndex);
+											delimiterIndex = registerValueArray[i+2].indexOf("|") + 1;
+											registerValueArray[i+2] = new StringBuilder(registerValueArray[i+2])
+												.insert(delimiterIndex, binaryValue).toString();
+											registerValueArray[i] = Integer.toString(firstValue);
 										}
+										else if (first.matches("[abcd]x")) {
+											firstValue = Integer.parseInt(new StringBuilder(registerValueArray[i]).
+												deleteCharAt(registerValueArray[i].indexOf("|")).toString(), 2);
+											secondValue = Integer.parseInt(dataArray[1]);
+											firstValue = firstValue - secondValue;
+											binaryValue = Integer.toBinaryString(firstValue);
+											if (firstValue < 256) {
+												registerValueArray[i] = "|" + binaryValue;
+												registerValueArray[i-1] = new String("");
+												registerValueArray[i-2] = Integer.toString(firstValue);
+											}
+											else {
+												String high = binaryValue.substring(0, binaryValue.length()-8);
+												String low = binaryValue.substring(binaryValue.length()-8, binaryValue.length());
+												registerValueArray[i] = high + "|" + low;
+												registerValueArray[i-1] = Integer.toString(Integer.parseInt(high, 10));
+												registerValueArray[i-2] = Integer.toString(Integer.parseInt(low, 10));
+											}
+										}
+										convertedBody += "\t" + first + " = " + first + " - " + second + ";\n";
+										isSecondVariable = true;
+										break;
 									}
-									convertedBody += "\t" + first + " = " + first + " - " + second + ";\n";
-									isSecondVariable = true;
-									break;
 								}
 							}
-							//if second is not a register and not a declared variable (i.e. second is a specific value)
+							// if second is not a register and not a declared variable (i.e. second is a specific value)
 							if (!isSecondVariable && !isSecondRegister) {
+								// hexadecimal
 								if (second.toLowerCase().matches(".*\\d.*[h]")) {
 									second = second.substring(0, second.toLowerCase().lastIndexOf("h"));
 									int hexaValue = Integer.parseInt(second, 16);
 									second = Integer.toString(hexaValue);
+								}
+								// character (will be converted to int)
+								else if (second.contains("\'") || second.contains("\"")) {
+									int decValue = (int) second.charAt(1);
+									second = Integer.toString(decValue);
 								}
 								int firstValue, secondValue, delimiterIndex;
 								if (first.matches("[abcd]h")) {
@@ -1109,12 +1197,12 @@ public class ToCLanguage {
 				}
 			}
 			
-			//int gr=-1;for(String[] array:dynamicData) {
-				//gr++;System.out.println(gr +" "+array[0] + " " + array[1]); }
-			//int grr=-1;for(String[] array:dataContent) {
-				//grr++;System.out.println(grr +" "+array[0] + " " + array[1]); }
-			//for (int i = 0; i < registersArray.length; i++) {
-				//System.out.println(registersArray[i] + " " + registerValueArray[i]); }
+			// int gr=-1;for(String[] array:dynamicData) {
+				// gr++;System.out.println(gr +" "+array[0] + " " + array[1]); }
+			// int grr=-1;for(String[] array:dataContent) {
+				// grr++;System.out.println(grr +" "+array[0] + " " + array[1]); }
+			// for (int i = 0; i < registersArray.length; i++) {
+				// System.out.println(registersArray[i] + " " + registerValueArray[i]); }
 		}
 		
 		return convertedBody;
