@@ -27,6 +27,10 @@ public class ToAssembly {
 	 * */
 	ToAssembly(String originalCode) {
 				
+		ToAssembly.convertedCode = "";
+		ToAssembly.dataContent.clear();
+		ToAssembly.dynamicData.clear();
+		
 		String[] convertedCode = {"", "", "", "", ""};
 		
 		convertedCode[0] = ".model small \n";
